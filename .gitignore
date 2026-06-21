@@ -1,6 +1,3 @@
-# Secrets
-.env
-
 # Database
 data/*.db
 data/*.db-wal
