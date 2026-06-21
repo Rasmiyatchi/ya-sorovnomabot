@@ -1,0 +1,11 @@
+aiogram>=3.13,<3.16
+SQLAlchemy>=2.0.30,<2.1
+greenlet>=3.0
+aiosqlite>=0.20
+pydantic-settings>=2.4
+captcha>=0.6.0
+Pillow>=10.3
+openpyxl>=3.1
+matplotlib>=3.8
+cachetools>=5.3
+python-dateutil>=2.9
