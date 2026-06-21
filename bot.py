@@ -18,6 +18,10 @@ from app.services.seed import seed
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("bot.log", encoding="utf-8")
+    ]
 )
 log = logging.getLogger("innobot")
 

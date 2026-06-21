@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import texts
+from app.db.repositories import candidates as candidates_repo
+from app.db.repositories import channels as channels_repo
 from app.db.repositories import settings_repo
 from app.handlers.admin.common import safe_edit
 from app.keyboards.admin import cancel_kb, settings_kb
+from app.keyboards.user import candidates_kb
 from app.services.deadline import format_deadline, parse_deadline
 from app.states.admin import SettingsFSM
 from app.utils import esc
@@ -122,3 +125,75 @@ async def on_deadline(
         return
     await settings_repo.set_deadline(session, parsed)
     await _save_and_show(message, state, session)
+
+
+@router.callback_query(F.data == "adm:post_poll")
+async def cb_post_poll(callback: CallbackQuery, session: AsyncSession, bot: Bot) -> None:
+    channels = await channels_repo.list_active(session)
+    if not channels:
+        await callback.answer(
+            "Majburiy kanallar qo'shilmagan. Avval kanal qo'shing.",
+            show_alert=True,
+        )
+        return
+
+    setting = await settings_repo.get_settings(session)
+    candidates = await candidates_repo.list_active(session)
+
+    if not candidates:
+        await callback.answer("So'rovnomada nomzodlar yo'q!", show_alert=True)
+        return
+
+    name = setting.poll_name or texts.DEFAULT_POLL_NAME
+    description = setting.description or texts.DEFAULT_DESCRIPTION
+
+    # Nomzod havolalarini matn ichiga joylash
+    # (Forward qilinganda inline tugmalar yo'qoladi, lekin matn ichidagi havolalar saqlanadi)
+    me = await bot.get_me()
+    vote_lines = []
+    for i, candidate in enumerate(candidates, start=1):
+        link = f"https://t.me/{me.username}?start=vote_{candidate.id}"
+        vote_lines.append(f'{i}. <a href="{link}">{esc(candidate.full_name)}</a>  —  🗳 Ovoz berish')
+
+    caption = (
+        f"<b>{esc(name)}</b>\n\n"
+        f"{esc(description)}\n\n"
+        f"<b>👇 Nomzodlar:</b>\n"
+        + "\n".join(vote_lines)
+    )
+
+    # Inline tugma ham qo'shamiz (kanalda ko'rinishi chiroyli bo'lishi uchun)
+    channel_markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🗳 Ovoz berish",
+            url=f"https://t.me/{me.username}?start=poll",
+        )]
+    ])
+
+    # Birinchi (asosiy) kanalga yuborish
+    channel = channels[0]
+    try:
+        if setting.banner_file_id:
+            chan_caption = caption[:1021] + "..." if len(caption) > 1024 else caption
+            await bot.send_photo(
+                channel.chat_id,
+                setting.banner_file_id,
+                caption=chan_caption,
+                reply_markup=channel_markup,
+            )
+        else:
+            chan_caption = caption[:4093] + "..." if len(caption) > 4096 else caption
+            await bot.send_message(
+                channel.chat_id, chan_caption, reply_markup=channel_markup
+            )
+        ch_name = channel.title or channel.username or str(channel.chat_id)
+        await callback.answer(
+            f"So'rovnoma '{ch_name}' kanaliga muvaffaqiyatli yuborildi!",
+            show_alert=True,
+        )
+    except Exception as e:
+        await callback.answer(
+            f"Xatolik yuz berdi: {e}",
+            show_alert=True,
+        )
+

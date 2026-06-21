@@ -37,5 +37,15 @@ async def cmd_top(message: Message, session: AsyncSession) -> None:
 
 @router.callback_query(F.data == "top")
 async def cb_top(callback: CallbackQuery, session: AsyncSession) -> None:
+    if callback.message is None or getattr(callback.message.chat, "type", None) == "channel":
+        try:
+            me = await callback.bot.get_me()
+            await callback.answer(
+                "TOP reytingni ko'rish uchun botga kiring 👇",
+                url=f"https://t.me/{me.username}?start=top",
+            )
+        except Exception:
+            await callback.answer("TOP reytingni ko'rish uchun botga kiring!", show_alert=True)
+        return
     await callback.message.answer(await _build_top(session))
     await callback.answer()

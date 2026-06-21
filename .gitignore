@@ -15,5 +15,11 @@ venv/
 .mypy_cache/
 .pytest_cache/
 
+# Logs
+*.log
+
+# Docs
+*.docx
+
 # OS
 .DS_Store

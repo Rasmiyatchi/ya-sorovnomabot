@@ -43,6 +43,18 @@ async def _issue_captcha(
 
 @router.callback_query(F.data.startswith("vote:"))
 async def on_candidate(callback: CallbackQuery, session: AsyncSession) -> None:
+    # Kanaldan bosilgan bo'lsa — foydalanuvchini botga yo'naltir
+    if callback.message is None or getattr(callback.message.chat, "type", None) == "channel":
+        try:
+            me = await callback.bot.get_me()
+            await callback.answer(
+                "Ovoz berish uchun botga kiring 👇",
+                url=f"https://t.me/{me.username}?start=poll",
+            )
+        except Exception:
+            await callback.answer("Ovoz berish uchun botga kiring!", show_alert=True)
+        return
+
     candidate_id = int(callback.data.split(":")[1])
     setting = await settings_repo.get_settings(session)
     if poll_closed(setting):

@@ -23,9 +23,14 @@ async def show_poll(message: Message, session) -> None:
         return
 
     markup = candidates_kb(candidates)
+    
     if setting.banner_file_id:
+        if len(caption) > 1024:
+            caption = caption[:1021] + "..."
         await message.answer_photo(
             setting.banner_file_id, caption=caption, reply_markup=markup
         )
     else:
+        if len(caption) > 4096:
+            caption = caption[:4093] + "..."
         await message.answer(caption, reply_markup=markup)

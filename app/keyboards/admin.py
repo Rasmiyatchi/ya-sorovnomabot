@@ -17,6 +17,8 @@ def admin_menu_kb(is_root: bool) -> InlineKeyboardMarkup:
     builder.button(text=texts.ADM_CHANNELS, callback_data="adm:channels")
     builder.button(text=texts.ADM_BROADCAST, callback_data="adm:broadcast")
     builder.button(text=texts.ADM_SETTINGS, callback_data="adm:settings")
+    builder.button(text="📢 Kanalga e'lon", callback_data="adm:post_poll")
+    builder.button(text="🔄 Ovozlarni nolga tushirish", callback_data="adm:reset_votes")
     if is_root:
         builder.button(text=texts.ROOT_PANEL_BTN, callback_data="root:menu")
     builder.adjust(2)
