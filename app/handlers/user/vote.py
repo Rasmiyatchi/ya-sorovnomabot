@@ -31,7 +31,7 @@ async def _issue_captcha(
     await pending_repo.upsert_pending(
         session, user_id, candidate_id, code, settings.captcha_ttl
     )
-    image = captcha_service.render(code)
+    image = await captcha_service.render(code)
     sent = await message.answer_photo(
         BufferedInputFile(image, "captcha.png"),
         caption=texts.ENTER_CAPTCHA,
@@ -187,7 +187,7 @@ async def on_captcha_text(
 
     new_code = captcha_service.new_code()
     await pending_repo.regenerate(session, pending, new_code, settings.captcha_ttl)
-    image = captcha_service.render(new_code)
+    image = await captcha_service.render(new_code)
     left = settings.captcha_max_attempts - pending.attempts
     await message.answer_photo(
         BufferedInputFile(image, "captcha.png"),

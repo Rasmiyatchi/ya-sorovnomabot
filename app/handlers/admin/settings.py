@@ -147,53 +147,66 @@ async def cb_post_poll(callback: CallbackQuery, session: AsyncSession, bot: Bot)
     name = setting.poll_name or texts.DEFAULT_POLL_NAME
     description = setting.description or texts.DEFAULT_DESCRIPTION
 
-    # Nomzod havolalarini matn ichiga joylash
-    # (Forward qilinganda inline tugmalar yo'qoladi, lekin matn ichidagi havolalar saqlanadi)
     me = await bot.get_me()
-    vote_lines = []
-    for i, candidate in enumerate(candidates, start=1):
-        link = f"https://t.me/{me.username}?start=vote_{candidate.id}"
-        vote_lines.append(f'{i}. <a href="{link}">{esc(candidate.full_name)}</a>  —  🗳 Ovoz berish')
 
     caption = (
         f"<b>{esc(name)}</b>\n\n"
         f"{esc(description)}\n\n"
-        f"<b>👇 Nomzodlar:</b>\n"
-        + "\n".join(vote_lines)
+        f"<b>👇 Nomzodlardan birini tanlang:</b>"
     )
 
-    # Inline tugma ham qo'shamiz (kanalda ko'rinishi chiroyli bo'lishi uchun)
-    channel_markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🗳 Ovoz berish",
-            url=f"https://t.me/{me.username}?start=poll",
-        )]
-    ])
+    # Har bir nomzod uchun alohida URL tugmasi
+    buttons = []
+    for candidate in candidates:
+        link = f"https://t.me/{me.username}?start=vote_{candidate.id}"
+        buttons.append([InlineKeyboardButton(
+            text=f"👤 {candidate.full_name}",
+            url=link,
+        )])
 
-    # Birinchi (asosiy) kanalga yuborish
-    channel = channels[0]
-    try:
-        if setting.banner_file_id:
-            chan_caption = caption[:1021] + "..." if len(caption) > 1024 else caption
-            await bot.send_photo(
-                channel.chat_id,
-                setting.banner_file_id,
-                caption=chan_caption,
-                reply_markup=channel_markup,
-            )
-        else:
-            chan_caption = caption[:4093] + "..." if len(caption) > 4096 else caption
-            await bot.send_message(
-                channel.chat_id, chan_caption, reply_markup=channel_markup
-            )
+    channel_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    # Barcha kanallarga yuborish
+    success_channels = []
+    failed_channels = []
+
+    for channel in channels:
         ch_name = channel.title or channel.username or str(channel.chat_id)
-        await callback.answer(
-            f"So'rovnoma '{ch_name}' kanaliga muvaffaqiyatli yuborildi!",
-            show_alert=True,
+        try:
+            if setting.banner_file_id:
+                chan_caption = caption[:1021] + "..." if len(caption) > 1024 else caption
+                await bot.send_photo(
+                    channel.chat_id,
+                    setting.banner_file_id,
+                    caption=chan_caption,
+                    reply_markup=channel_markup,
+                )
+            else:
+                chan_caption = caption[:4093] + "..." if len(caption) > 4096 else caption
+                await bot.send_message(
+                    channel.chat_id, chan_caption, reply_markup=channel_markup
+                )
+            success_channels.append(ch_name)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Kanalga yuborishda xatolik (%s): %s", ch_name, e
+            )
+            failed_channels.append(ch_name)
+
+    if success_channels and not failed_channels:
+        result_text = f"✅ So'rovnoma {len(success_channels)} ta kanalga yuborildi!"
+    elif success_channels and failed_channels:
+        result_text = (
+            f"⚠️ {len(success_channels)} ta kanalga yuborildi, "
+            f"{len(failed_channels)} ta kanalda xatolik: {', '.join(failed_channels)}"
         )
-    except Exception as e:
-        await callback.answer(
-            f"Xatolik yuz berdi: {e}",
-            show_alert=True,
-        )
+    else:
+        result_text = f"❌ Xatolik! Kanallarga yuborib bo'lmadi: {', '.join(failed_channels)}"
+
+    # callback.answer faqat 200 belgi qabul qiladi
+    if len(result_text) > 190:
+        result_text = result_text[:187] + "..."
+
+    await callback.answer(result_text, show_alert=True)
 

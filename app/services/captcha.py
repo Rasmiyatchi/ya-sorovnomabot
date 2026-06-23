@@ -19,9 +19,15 @@ def new_code() -> str:
     return "".join(random.choices(_ALPHABET, k=settings.captcha_length))
 
 
-def render(code: str) -> bytes:
+import asyncio
+
+def _render_sync(code: str) -> bytes:
     buffer = _GENERATOR.generate(code)
     return buffer.getvalue()
+
+
+async def render(code: str) -> bytes:
+    return await asyncio.to_thread(_render_sync, code)
 
 
 def matches(expected: str, given: str | None) -> bool:
